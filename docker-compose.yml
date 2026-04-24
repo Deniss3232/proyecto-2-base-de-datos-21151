@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16
+    container_name: refrescos_db
+    environment:
+      POSTGRES_USER: proy2
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: tienda_refrescos
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/1.sql
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/2.sql
+      - ./database/indexes.sql:/docker-entrypoint-initdb.d/3.sql
+      
