@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Tienda de Refrescos</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #f3f4f6; }
+    header { background: #0f766e; color: white; padding: 25px; text-align: center; }
+    nav { background: #134e4a; padding: 14px; text-align: center; }
+    nav button, button { margin: 6px; padding: 10px 14px; border: 0; border-radius: 6px; background: #0f766e; color: white; cursor: pointer; }
+    main { padding: 24px; }
+    .card { background: white; padding: 20px; border-radius: 10px; margin-bottom: 18px; box-shadow: 0 2px 8px #0002; }
+    input, select { padding: 9px; margin: 6px; min-width: 180px; }
+    table { width: 100%; border-collapse: collapse; background: white; margin-top: 10px; font-size: 14px; }
+    th, td { padding: 9px; border-bottom: 1px solid #ddd; text-align: left; }
+    th { background: #dff5f2; }
+    .error { color: #b91c1c; font-weight: bold; }
+    .ok { color: #047857; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Tienda de Refrescos</h1>
+  <p>Sistema de inventario, ventas y reportes</p>
+</header>
+
+<nav>
+  <button id="btnProductos">Productos</button>
+  <button id="btnClientes">Clientes</button>
+  <button id="btnReporte">Reporte ventas</button>
+  <button id="btnSQL">Consultas SQL</button>
+  <button id="btnCSV">Exportar CSV</button>
+</nav>
+
+<main>
+
+  <div class="card">
+    <h2>Login</h2>
+    <input id="correoLogin" value="admin@refrescos.com" placeholder="Correo">
+    <input id="passwordLogin" value="1234" placeholder="Contraseña" type="password">
+    <button id="btnLogin">Iniciar sesión</button>
+    <button id="btnSesion">Ver sesión</button>
+    <button id="btnLogout">Cerrar sesión</button>
+  </div>
+
+  <div class="card">
+    <h2>Agregar producto</h2>
+    <input id="nombreProducto" placeholder="Nombre del producto">
+    <input id="precioProducto" placeholder="Precio" type="number">
+    <input id="stockProducto" placeholder="Stock" type="number">
+    <select id="categoriaProducto"></select>
+    <select id="proveedorProducto"></select>
+    <button id="btnGuardarProducto">Guardar producto</button>
+  </div>
+
+  <div class="card">
+    <h2>Agregar cliente</h2>
+    <input id="nombreCliente" placeholder="Nombre">
+    <input id="telefonoCliente" placeholder="Teléfono">
+    <button id="btnGuardarCliente">Guardar cliente</button>
+  </div>
+
+  <div class="card">
+    <h2>Registrar venta</h2>
+    <select id="clienteVenta"></select>
+    <select id="empleadoVenta"></select>
+    <select id="productoVenta"></select>
+    <input id="cantidadVenta" placeholder="Cantidad" type="number" value="1">
+    <button id="btnRegistrarVenta">Registrar venta</button>
+  </div>
+
+  <div class="card">
+    <h2>Resultado</h2>
+    <p id="mensaje"></p>
+    <div id="contenido"></div>
+  </div>
+
+</main>
+
+<script>
+  const API = "http://localhost:3000";
+
+  function mostrarMensaje(texto, tipo = "ok") {
+    const mensaje = document.getElementById("mensaje");
+    mensaje.className = tipo;
+    mensaje.textContent = texto;
+  }
+
+  function tabla(datos) {
+    if (!datos || datos.length === 0) return "<p>No hay datos.</p>";
+
+    const columnas = Object.keys(datos[0]);
+    let html = "<table><thead><tr>";
+
+    columnas.forEach(columna => {
+      html += `<th>${columna}</th>`;
+    });
+
+    html += "</tr></thead><tbody>";
+
+    datos.forEach(fila => {
+      html += "<tr>";
+      columnas.forEach(columna => {
+        html += `<td>${fila[columna]}</td>`;
+      });
+      html += "</tr>";
+    });
+
+    html += "</tbody></table>";
+    return html;
+  }
+
+  async function llenarSelect(ruta, idSelect, texto, valor) {
+    const respuesta = await fetch(API + ruta, {
+      credentials: "include"
+    });
+
+    const datos = await respuesta.json();
+    const select = document.getElementById(idSelect);
+    select.innerHTML = "";
+
+    datos.forEach(item => {
+      const option = document.createElement("option");
+      option.value = item[valor];
+      option.textContent = item[valor] + " - " + item[texto];
+      select.appendChild(option);
+    });
+  }
+
+  async function cargarCombos() {
+    try {
+      await llenarSelect("/categorias", "categoriaProducto", "nombre", "id_categoria");
+      await llenarSelect("/proveedores", "proveedorProducto", "nombre", "id_proveedor");
+      await llenarSelect("/clientes", "clienteVenta", "nombre", "id_cliente");
+      await llenarSelect("/empleados", "empleadoVenta", "nombre", "id_empleado");
+      await llenarSelect("/productos", "productoVenta", "nombre", "id_producto");
+    } catch (error) {
+      mostrarMensaje("No se pudieron cargar los datos iniciales", "error");
+      console.log(error);
+    }
+  }
+
+  async function iniciarSesion() {
+    try {
+      mostrarMensaje("Probando login...");
+
+      const datos = {
+        correo: document.getElementById("correoLogin").value,
+        password: document.getElementById("passwordLogin").value
+      };
+
+      const respuesta = await fetch(API + "/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(datos)
+      });
+
+      const resultado = await respuesta.json();
+
+      if (!respuesta.ok) {
+        mostrarMensaje("Credenciales incorrectas", "error");
+        return;
+      }
+
+      mostrarMensaje("Bienvenido, " + resultado.usuario.nombre);
+    } catch (error) {
+      mostrarMensaje("Error al conectar con el backend", "error");
+      console.log(error);
+    }
+  }
+
+  async function verSesion() {
+    try {
+      const respuesta = await fetch(API + "/sesion", {
+        credentials: "include"
+      });
+
+      const resultado = await respuesta.json();
+
+      if (!respuesta.ok) {
+        mostrarMensaje("No hay sesión activa", "error");
+        return;
+      }
+
+      mostrarMensaje("Sesión activa: " + resultado.usuario.nombre);
+    } catch (error) {
+      mostrarMensaje("Error al revisar sesión", "error");
+    }
+  }
+
+  async function cerrarSesion() {
+    try {
+      const respuesta = await fetch(API + "/logout", {
+        method: "POST",
+        credentials: "include"
+      });
+
+      const resultado = await respuesta.json();
+      mostrarMensaje(resultado.mensaje);
+    } catch (error) {
+      mostrarMensaje("Error al cerrar sesión", "error");
+    }
+  }
+
+  async function cargarProductos() {
+    const respuesta = await fetch(API + "/productos", {
+      credentials: "include"
+    });
+    const datos = await respuesta.json();
+    document.getElementById("contenido").innerHTML = "<h3>Productos</h3>" + tabla(datos);
+    mostrarMensaje("Productos cargados correctamente");
+  }
+
+  async function cargarClientes() {
+    const respuesta = await fetch(API + "/clientes", {
+      credentials: "include"
+    });
+    const datos = await respuesta.json();
+    document.getElementById("contenido").innerHTML = "<h3>Clientes</h3>" + tabla(datos);
+    mostrarMensaje("Clientes cargados correctamente");
+  }
+
+  async function cargarReporte() {
+    const respuesta = await fetch(API + "/reporte-ventas", {
+      credentials: "include"
+    });
+    const datos = await respuesta.json();
+    document.getElementById("contenido").innerHTML = "<h3>Reporte de ventas</h3>" + tabla(datos);
+    mostrarMensaje("Reporte cargado correctamente");
+  }
+
+  async function cargarSQL() {
+    const join = await fetch(API + "/consulta-join", { credentials: "include" }).then(r => r.json());
+    const joinVentas = await fetch(API + "/consulta-join-ventas", { credentials: "include" }).then(r => r.json());
+    const subquery = await fetch(API + "/consulta-subquery", { credentials: "include" }).then(r => r.json());
+    const subqueryStock = await fetch(API + "/consulta-subquery-stock", { credentials: "include" }).then(r => r.json());
+    const group = await fetch(API + "/consulta-group", { credentials: "include" }).then(r => r.json());
+    const cte = await fetch(API + "/consulta-cte", { credentials: "include" }).then(r => r.json());
+
+    document.getElementById("contenido").innerHTML =
+      "<h3>JOIN detalle venta</h3>" + tabla(join) +
+      "<h3>JOIN ventas</h3>" + tabla(joinVentas) +
+      "<h3>Subquery precio mayor al promedio</h3>" + tabla(subquery) +
+      "<h3>Subquery productos vendidos</h3>" + tabla(subqueryStock) +
+      "<h3>GROUP BY / HAVING</h3>" + tabla(group) +
+      "<h3>CTE</h3>" + tabla(cte);
+
+    mostrarMensaje("Consultas SQL cargadas correctamente");
+  }
+
+  async function agregarProducto() {
+    try {
+      const producto = {
+        nombre: document.getElementById("nombreProducto").value,
+        precio: Number(document.getElementById("precioProducto").value),
+        stock: Number(document.getElementById("stockProducto").value),
+        id_categoria: Number(document.getElementById("categoriaProducto").value),
+        id_proveedor: Number(document.getElementById("proveedorProducto").value)
+      };
+
+      const respuesta = await fetch(API + "/productos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(producto)
+      });
+
+      if (!respuesta.ok) {
+        mostrarMensaje("No se pudo agregar el producto", "error");
+        return;
+      }
+
+      mostrarMensaje("Producto agregado correctamente");
+      await cargarProductos();
+      await cargarCombos();
+    } catch (error) {
+      mostrarMensaje("Error al agregar producto", "error");
+      console.log(error);
+    }
+  }
+
+  async function agregarCliente() {
+    try {
+      const cliente = {
+        nombre: document.getElementById("nombreCliente").value,
+        telefono: document.getElementById("telefonoCliente").value
+      };
+
+      const respuesta = await fetch(API + "/clientes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(cliente)
+      });
+
+      if (!respuesta.ok) {
+        mostrarMensaje("No se pudo agregar el cliente", "error");
+        return;
+      }
+
+      mostrarMensaje("Cliente agregado correctamente");
+      await cargarClientes();
+      await cargarCombos();
+    } catch (error) {
+      mostrarMensaje("Error al agregar cliente", "error");
+      console.log(error);
+    }
+  }
+
+  async function registrarVenta() {
+    try {
+      const venta = {
+        id_cliente: Number(document.getElementById("clienteVenta").value),
+        id_empleado: Number(document.getElementById("empleadoVenta").value),
+        productos: [
+          {
+            id_producto: Number(document.getElementById("productoVenta").value),
+            cantidad: Number(document.getElementById("cantidadVenta").value)
+          }
+        ]
+      };
+
+      const respuesta = await fetch(API + "/ventas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(venta)
+      });
+
+      const resultado = await respuesta.json();
+
+      if (!respuesta.ok) {
+        mostrarMensaje("No se pudo registrar la venta", "error");
+        return;
+      }
+
+      mostrarMensaje(resultado.mensaje + ". Total: Q" + resultado.total);
+      await cargarReporte();
+      await cargarCombos();
+    } catch (error) {
+      mostrarMensaje("Error al registrar venta", "error");
+      console.log(error);
+    }
+  }
+
+  function exportarReporte() {
+    window.location.href = API + "/exportar-reporte";
+  }
+
+  document.getElementById("btnLogin").addEventListener("click", iniciarSesion);
+  document.getElementById("btnSesion").addEventListener("click", verSesion);
+  document.getElementById("btnLogout").addEventListener("click", cerrarSesion);
+  document.getElementById("btnProductos").addEventListener("click", cargarProductos);
+  document.getElementById("btnClientes").addEventListener("click", cargarClientes);
+  document.getElementById("btnReporte").addEventListener("click", cargarReporte);
+  document.getElementById("btnSQL").addEventListener("click", cargarSQL);
+  document.getElementById("btnCSV").addEventListener("click", exportarReporte);
+  document.getElementById("btnGuardarProducto").addEventListener("click", agregarProducto);
+  document.getElementById("btnGuardarCliente").addEventListener("click", agregarCliente);
+  document.getElementById("btnRegistrarVenta").addEventListener("click", registrarVenta);
+
+  cargarCombos();
+  cargarProductos();
+</script>
+
+</body>
+</html>

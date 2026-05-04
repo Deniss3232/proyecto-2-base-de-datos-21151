@@ -9,7 +9,28 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./database/schema.sql:/docker-entrypoint-initdb.d/1.sql
-      - ./database/seed.sql:/docker-entrypoint-initdb.d/2.sql
-      - ./database/indexes.sql:/docker-entrypoint-initdb.d/3.sql
-      
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/1_schema.sql
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/2_seed.sql
+      - ./database/indexes.sql:/docker-entrypoint-initdb.d/3_indexes.sql
+
+  backend:
+    build: ./backend
+    container_name: refrescos_backend
+    ports:
+      - "3000:3000"
+    environment:
+      DB_USER: proy2
+      DB_PASSWORD: secret
+      DB_NAME: tienda_refrescos
+      DB_HOST: db
+      DB_PORT: 5432
+    depends_on:
+      - db
+
+  frontend:
+    build: ./frontend
+    container_name: refrescos_frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend

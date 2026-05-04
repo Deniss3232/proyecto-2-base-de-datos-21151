@@ -1,19 +1,48 @@
-INSERT INTO categoria(nombre) VALUES
-('Gaseosas'),
-('Jugos'),
-('Energizantes');
+INSERT INTO categoria(nombre)
+SELECT 'Categoria ' || numero
+FROM generate_series(1, 25) AS numero;
 
-INSERT INTO proveedor(nombre,telefono) VALUES
-('Coca Cola GT','5555-1111'),
-('Pepsi GT','5555-2222'),
-('Red Bull GT','5555-3333');
+INSERT INTO proveedor(nombre, telefono)
+SELECT 'Proveedor ' || numero, '5555-' || LPAD(numero::TEXT, 4, '0')
+FROM generate_series(1, 25) AS numero;
 
-INSERT INTO cliente(nombre,telefono) VALUES
-('Denis Rodriguez','4444-1111'),
-('Juan Perez','4444-2222');
+INSERT INTO cliente(nombre, telefono)
+SELECT 'Cliente ' || numero, '4000-' || LPAD(numero::TEXT, 4, '0')
+FROM generate_series(1, 25) AS numero;
 
-INSERT INTO producto(nombre,precio,stock,id_categoria,id_proveedor) VALUES
-('Coca Cola 600ml',8,50,1,1),
-('Pepsi 600ml',7,45,1,2),
-('Red Bull',18,20,3,3),
-('Del Valle Mango',10,25,2,1);
+INSERT INTO empleado(nombre, puesto)
+SELECT 'Empleado ' || numero,
+CASE 
+    WHEN numero % 3 = 0 THEN 'Administrador'
+    WHEN numero % 3 = 1 THEN 'Cajero'
+    ELSE 'Vendedor'
+END
+FROM generate_series(1, 25) AS numero;
+
+INSERT INTO usuario(correo, password, nombre) VALUES
+('admin@refrescos.com', '1234', 'Administrador Principal');
+
+INSERT INTO producto(nombre, precio, stock, id_categoria, id_proveedor)
+SELECT 
+    'Refresco ' || numero,
+    5 + numero,
+    20 + numero,
+    ((numero - 1) % 25) + 1,
+    ((numero - 1) % 25) + 1
+FROM generate_series(1, 25) AS numero;
+
+INSERT INTO venta(fecha, total, id_cliente, id_empleado)
+SELECT 
+    CURRENT_DATE - numero,
+    20 + numero,
+    ((numero - 1) % 25) + 1,
+    ((numero - 1) % 25) + 1
+FROM generate_series(1, 25) AS numero;
+
+INSERT INTO detalle_venta(id_venta, id_producto, cantidad, subtotal)
+SELECT
+    numero,
+    ((numero - 1) % 25) + 1,
+    2,
+    (5 + numero) * 2
+FROM generate_series(1, 25) AS numero;
