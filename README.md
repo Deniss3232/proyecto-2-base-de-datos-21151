@@ -118,6 +118,10 @@ Frontend: http://localhost:8080
 Backend: http://localhost:3000
 Base de datos: localhost:5432
 
- ## DER 
+ ## DER realizado a mano
 
  <img width="512" height="541" alt="image" src="https://github.com/user-attachments/assets/cc4da66c-4036-42e6-940b-b0c0c02d92f4" />
+
+## DER realizado en computadora 
+
+<img width="766" height="509" alt="image" src="https://github.com/user-attachments/assets/c240c76a-21c1-4ff6-a60b-5ca34123c0a3" />
