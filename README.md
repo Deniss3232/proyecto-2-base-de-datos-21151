@@ -1,27 +1,23 @@
-# Proyecto 2 - Tienda de Refrescos
+#  Proyecto 2 - Tienda de Refrescos
 
-Sistema web para administrar inventario y ventas de una tienda de bebidas.
+Proyecto del curso **CC3088 - Bases de Datos 1**.
 
-## Tecnologías
+Este sistema simula una tienda de refrescos donde se puede manejar inventario, clientes y ventas. Incluye base de datos relacional, backend en Node.js, frontend web y despliegue completo con Docker.
 
-- PostgreSQL
-- Docker
-- SQL
-- GitHub
+---
 
-## Ejecutar
+##  Tecnologías utilizadas
+
+- PostgreSQL 16
+- Node.js + Express
+- HTML, CSS y JavaScript
+- Docker + Docker Compose
+
+---
+
+##  Cómo ejecutar el proyecto
+
+Desde la carpeta raíz del proyecto:
 
 ```bash
-docker compose up
-
-## Credenciales
-
-Usuario: proy2
-Password: secret
-
-## Avance actual
-Diseño de base de datos
-Tablas creadas
-Datos de prueba
-Índices
-Docker inicial
+docker compose up --build
