@@ -117,3 +117,7 @@ GET /exportar-reporte
 Frontend: http://localhost:8080
 Backend: http://localhost:3000
 Base de datos: localhost:5432
+
+ ## DER 
+
+ <img width="512" height="541" alt="image" src="https://github.com/user-attachments/assets/cc4da66c-4036-42e6-940b-b0c0c02d92f4" />
