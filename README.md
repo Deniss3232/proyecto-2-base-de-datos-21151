@@ -33,6 +33,7 @@ Correo: admin@refrescos.com
 Contraseña: 1234
 
 ## Estructura del proyecto 
+```
 Proyecto2-Tienda-Refrescos/
 ├── backend/
 │   ├── server.js
@@ -48,7 +49,7 @@ Proyecto2-Tienda-Refrescos/
 │   └── Dockerfile
 ├── docker-compose.yml
 ├── README.md
-
+```
 ## Funcionalidades 
 Login y logout con sesión
 CRUD de productos
