@@ -121,4 +121,15 @@ Base de datos: localhost:5432
  ## DER 
 <img width="755" height="503" alt="image" src="https://github.com/user-attachments/assets/8a281969-4c23-4d2f-8c86-994eec6ffb63" />
 
+##  Problemas comunes
+
+- Si aparece error de contenedores existentes:
+  docker rm -f refrescos_db refrescos_backend refrescos_frontend
+
+- Si los puertos están ocupados:
+  docker compose down
+  docker compose up --build
+
+- Asegúrese de tener Docker Desktop corriendo
+
 
