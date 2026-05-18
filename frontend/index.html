@@ -22,7 +22,7 @@
 
 <header>
   <h1>Tienda de Refrescos</h1>
-  <p>Sistema de inventario, ventas y reportes</p>
+  <p>Sistema de inventario, ventas, reportes y roles</p>
 </header>
 
 <nav>
@@ -42,6 +42,13 @@
     <button id="btnLogin">Iniciar sesión</button>
     <button id="btnSesion">Ver sesión</button>
     <button id="btnLogout">Cerrar sesión</button>
+
+    <p><b>Usuarios de prueba:</b></p>
+    <p>admin@refrescos.com / 1234</p>
+    <p>gerente@refrescos.com / 1234</p>
+    <p>cajero@refrescos.com / 1234</p>
+    <p>inventario@refrescos.com / 1234</p>
+    <p>reportes@refrescos.com / 1234</p>
   </div>
 
   <div class="card">
@@ -87,6 +94,14 @@
     mensaje.textContent = texto;
   }
 
+  function mostrarErrorDesdeRespuesta(resultado, mensajeDefault) {
+    if (resultado && resultado.mensaje) {
+      mostrarMensaje(resultado.mensaje, "error");
+    } else {
+      mostrarMensaje(mensajeDefault, "error");
+    }
+  }
+
   function tabla(datos) {
     if (!datos || datos.length === 0) return "<p>No hay datos.</p>";
 
@@ -117,6 +132,11 @@
     });
 
     const datos = await respuesta.json();
+
+    if (!respuesta.ok) {
+      throw new Error(datos.mensaje || "No autorizado");
+    }
+
     const select = document.getElementById(idSelect);
     select.innerHTML = "";
 
@@ -136,7 +156,6 @@
       await llenarSelect("/empleados", "empleadoVenta", "nombre", "id_empleado");
       await llenarSelect("/productos", "productoVenta", "nombre", "id_producto");
     } catch (error) {
-      mostrarMensaje("No se pudieron cargar los datos iniciales", "error");
       console.log(error);
     }
   }
@@ -164,7 +183,10 @@
         return;
       }
 
-      mostrarMensaje("Bienvenido, " + resultado.usuario.nombre);
+      mostrarMensaje("Bienvenido, " + resultado.usuario.nombre + " | Rol: " + resultado.usuario.rol);
+      await cargarCombos();
+      await cargarProductos();
+
     } catch (error) {
       mostrarMensaje("Error al conectar con el backend", "error");
       console.log(error);
@@ -180,11 +202,11 @@
       const resultado = await respuesta.json();
 
       if (!respuesta.ok) {
-        mostrarMensaje("No hay sesión activa", "error");
+        mostrarMensaje(resultado.mensaje || "No hay sesión activa", "error");
         return;
       }
 
-      mostrarMensaje("Sesión activa: " + resultado.usuario.nombre);
+      mostrarMensaje("Sesión activa: " + resultado.nombre + " | Rol: " + resultado.rol);
     } catch (error) {
       mostrarMensaje("Error al revisar sesión", "error");
     }
@@ -198,56 +220,88 @@
       });
 
       const resultado = await respuesta.json();
-      mostrarMensaje(resultado.mensaje);
+      mostrarMensaje(resultado.mensaje || "Sesión cerrada");
+      document.getElementById("contenido").innerHTML = "";
     } catch (error) {
       mostrarMensaje("Error al cerrar sesión", "error");
     }
   }
 
   async function cargarProductos() {
-    const respuesta = await fetch(API + "/productos", {
-      credentials: "include"
-    });
-    const datos = await respuesta.json();
-    document.getElementById("contenido").innerHTML = "<h3>Productos</h3>" + tabla(datos);
-    mostrarMensaje("Productos cargados correctamente");
+    try {
+      const respuesta = await fetch(API + "/productos", {
+        credentials: "include"
+      });
+
+      const datos = await respuesta.json();
+
+      if (!respuesta.ok) {
+        mostrarErrorDesdeRespuesta(datos, "No se pudieron cargar productos");
+        return;
+      }
+
+      document.getElementById("contenido").innerHTML = "<h3>Productos</h3>" + tabla(datos);
+      mostrarMensaje("Productos cargados correctamente");
+    } catch (error) {
+      mostrarMensaje("Error al cargar productos", "error");
+    }
   }
 
   async function cargarClientes() {
-    const respuesta = await fetch(API + "/clientes", {
-      credentials: "include"
-    });
-    const datos = await respuesta.json();
-    document.getElementById("contenido").innerHTML = "<h3>Clientes</h3>" + tabla(datos);
-    mostrarMensaje("Clientes cargados correctamente");
+    try {
+      const respuesta = await fetch(API + "/clientes", {
+        credentials: "include"
+      });
+
+      const datos = await respuesta.json();
+
+      if (!respuesta.ok) {
+        mostrarErrorDesdeRespuesta(datos, "No se pudieron cargar clientes");
+        return;
+      }
+
+      document.getElementById("contenido").innerHTML = "<h3>Clientes</h3>" + tabla(datos);
+      mostrarMensaje("Clientes cargados correctamente");
+    } catch (error) {
+      mostrarMensaje("Error al cargar clientes", "error");
+    }
   }
 
   async function cargarReporte() {
-    const respuesta = await fetch(API + "/reporte-ventas", {
-      credentials: "include"
-    });
-    const datos = await respuesta.json();
-    document.getElementById("contenido").innerHTML = "<h3>Reporte de ventas</h3>" + tabla(datos);
-    mostrarMensaje("Reporte cargado correctamente");
+    try {
+      const respuesta = await fetch(API + "/reporte-ventas", {
+        credentials: "include"
+      });
+
+      const datos = await respuesta.json();
+
+      if (!respuesta.ok) {
+        mostrarErrorDesdeRespuesta(datos, "No se pudo cargar el reporte");
+        return;
+      }
+
+      document.getElementById("contenido").innerHTML = "<h3>Reporte de ventas</h3>" + tabla(datos);
+      mostrarMensaje("Reporte cargado correctamente");
+    } catch (error) {
+      mostrarMensaje("Error al cargar reporte", "error");
+    }
   }
 
   async function cargarSQL() {
-    const join = await fetch(API + "/consulta-join", { credentials: "include" }).then(r => r.json());
-    const joinVentas = await fetch(API + "/consulta-join-ventas", { credentials: "include" }).then(r => r.json());
-    const subquery = await fetch(API + "/consulta-subquery", { credentials: "include" }).then(r => r.json());
-    const subqueryStock = await fetch(API + "/consulta-subquery-stock", { credentials: "include" }).then(r => r.json());
-    const group = await fetch(API + "/consulta-group", { credentials: "include" }).then(r => r.json());
-    const cte = await fetch(API + "/consulta-cte", { credentials: "include" }).then(r => r.json());
+    try {
+      const join = await fetch(API + "/consulta-join", { credentials: "include" }).then(r => r.json());
+      const group = await fetch(API + "/consulta-group", { credentials: "include" }).then(r => r.json());
+      const cte = await fetch(API + "/consulta-cte", { credentials: "include" }).then(r => r.json());
 
-    document.getElementById("contenido").innerHTML =
-      "<h3>JOIN detalle venta</h3>" + tabla(join) +
-      "<h3>JOIN ventas</h3>" + tabla(joinVentas) +
-      "<h3>Subquery precio mayor al promedio</h3>" + tabla(subquery) +
-      "<h3>Subquery productos vendidos</h3>" + tabla(subqueryStock) +
-      "<h3>GROUP BY / HAVING</h3>" + tabla(group) +
-      "<h3>CTE</h3>" + tabla(cte);
+      document.getElementById("contenido").innerHTML =
+        "<h3>JOIN</h3>" + tabla(join) +
+        "<h3>GROUP BY</h3>" + tabla(group) +
+        "<h3>CTE</h3>" + tabla(cte);
 
-    mostrarMensaje("Consultas SQL cargadas correctamente");
+      mostrarMensaje("Consultas SQL cargadas correctamente");
+    } catch (error) {
+      mostrarMensaje("No tiene permiso para ver consultas SQL o hubo un error", "error");
+    }
   }
 
   async function agregarProducto() {
@@ -267,14 +321,17 @@
         body: JSON.stringify(producto)
       });
 
+      const resultado = await respuesta.json();
+
       if (!respuesta.ok) {
-        mostrarMensaje("No se pudo agregar el producto", "error");
+        mostrarErrorDesdeRespuesta(resultado, "No se pudo agregar el producto");
         return;
       }
 
-      mostrarMensaje("Producto agregado correctamente");
+      mostrarMensaje(resultado.mensaje || "Producto agregado correctamente");
       await cargarProductos();
       await cargarCombos();
+
     } catch (error) {
       mostrarMensaje("Error al agregar producto", "error");
       console.log(error);
@@ -295,14 +352,17 @@
         body: JSON.stringify(cliente)
       });
 
+      const resultado = await respuesta.json();
+
       if (!respuesta.ok) {
-        mostrarMensaje("No se pudo agregar el cliente", "error");
+        mostrarErrorDesdeRespuesta(resultado, "No se pudo agregar el cliente");
         return;
       }
 
-      mostrarMensaje("Cliente agregado correctamente");
+      mostrarMensaje(resultado.mensaje || "Cliente agregado correctamente");
       await cargarClientes();
       await cargarCombos();
+
     } catch (error) {
       mostrarMensaje("Error al agregar cliente", "error");
       console.log(error);
@@ -332,13 +392,14 @@
       const resultado = await respuesta.json();
 
       if (!respuesta.ok) {
-        mostrarMensaje("No se pudo registrar la venta", "error");
+        mostrarErrorDesdeRespuesta(resultado, "No se pudo registrar la venta");
         return;
       }
 
-      mostrarMensaje(resultado.mensaje + ". Total: Q" + resultado.total);
+      mostrarMensaje(resultado.mensaje || "Venta registrada correctamente");
       await cargarReporte();
       await cargarCombos();
+
     } catch (error) {
       mostrarMensaje("Error al registrar venta", "error");
       console.log(error);
@@ -361,8 +422,7 @@
   document.getElementById("btnGuardarCliente").addEventListener("click", agregarCliente);
   document.getElementById("btnRegistrarVenta").addEventListener("click", registrarVenta);
 
-  cargarCombos();
-  cargarProductos();
+  mostrarMensaje("Inicia sesión para cargar los datos del sistema");
 </script>
 
 </body>

@@ -1,3 +1,5 @@
+DROP VIEW IF EXISTS vista_reporte_ventas;
+
 DROP TABLE IF EXISTS detalle_venta;
 DROP TABLE IF EXISTS venta;
 DROP TABLE IF EXISTS producto;
@@ -34,7 +36,8 @@ CREATE TABLE usuario (
     id_usuario SERIAL PRIMARY KEY,
     correo VARCHAR(100) NOT NULL UNIQUE,
     password VARCHAR(100) NOT NULL,
-    nombre VARCHAR(100) NOT NULL
+    nombre VARCHAR(100) NOT NULL,
+    rol VARCHAR(50) NOT NULL
 );
 
 CREATE TABLE producto (
@@ -42,24 +45,30 @@ CREATE TABLE producto (
     nombre VARCHAR(100) NOT NULL,
     precio DECIMAL(10,2) NOT NULL,
     stock INT NOT NULL,
-    id_categoria INT NOT NULL REFERENCES categoria(id_categoria),
-    id_proveedor INT NOT NULL REFERENCES proveedor(id_proveedor)
+    id_categoria INT NOT NULL,
+    id_proveedor INT NOT NULL,
+    FOREIGN KEY (id_categoria) REFERENCES categoria(id_categoria),
+    FOREIGN KEY (id_proveedor) REFERENCES proveedor(id_proveedor)
 );
 
 CREATE TABLE venta (
     id_venta SERIAL PRIMARY KEY,
     fecha DATE NOT NULL,
     total DECIMAL(10,2) NOT NULL,
-    id_cliente INT NOT NULL REFERENCES cliente(id_cliente),
-    id_empleado INT NOT NULL REFERENCES empleado(id_empleado)
+    id_cliente INT NOT NULL,
+    id_empleado INT NOT NULL,
+    FOREIGN KEY (id_cliente) REFERENCES cliente(id_cliente),
+    FOREIGN KEY (id_empleado) REFERENCES empleado(id_empleado)
 );
 
 CREATE TABLE detalle_venta (
     id_detalle SERIAL PRIMARY KEY,
-    id_venta INT NOT NULL REFERENCES venta(id_venta),
-    id_producto INT NOT NULL REFERENCES producto(id_producto),
+    id_venta INT NOT NULL,
+    id_producto INT NOT NULL,
     cantidad INT NOT NULL,
-    subtotal DECIMAL(10,2) NOT NULL
+    subtotal DECIMAL(10,2) NOT NULL,
+    FOREIGN KEY (id_venta) REFERENCES venta(id_venta),
+    FOREIGN KEY (id_producto) REFERENCES producto(id_producto)
 );
 
 CREATE VIEW vista_reporte_ventas AS
