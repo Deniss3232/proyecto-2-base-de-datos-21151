@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const session = require("express-session");
 const pool = require("./db");
+const { sequelize, Producto, Cliente } = require("./orm");
 
 const app = express();
 
@@ -22,12 +23,7 @@ app.use(session({
   }
 }));
 
-// ===============================
-// MIDDLEWARES
-// ===============================
-
 function verificarSesion(req, res, next) {
-
   if (!req.session.usuario) {
     return res.status(401).json({
       mensaje: "Debe iniciar sesión"
@@ -38,39 +34,27 @@ function verificarSesion(req, res, next) {
 }
 
 function permitirRoles(rolesPermitidos) {
-
   return (req, res, next) => {
-
     const usuario = req.session.usuario;
 
     if (!usuario || !rolesPermitidos.includes(usuario.rol)) {
-
       return res.status(403).json({
         mensaje: "No tiene permiso para esta acción"
       });
-
     }
 
     next();
   };
 }
 
-// ===============================
-// RUTA PRINCIPAL
-// ===============================
-
 app.get("/", (req, res) => {
   res.send("API Tienda de Refrescos funcionando");
 });
 
-// ===============================
-// LOGIN
-// ===============================
+// LOGIN Y SESIÓN
 
 app.post("/login", async (req, res) => {
-
   try {
-
     const { correo, password } = req.body;
 
     const resultado = await pool.query(
@@ -83,11 +67,9 @@ app.post("/login", async (req, res) => {
     );
 
     if (resultado.rows.length === 0) {
-
       return res.status(401).json({
         mensaje: "Credenciales incorrectas"
       });
-
     }
 
     req.session.usuario = resultado.rows[0];
@@ -96,332 +78,459 @@ app.post("/login", async (req, res) => {
       mensaje: "Login correcto",
       usuario: resultado.rows[0]
     });
-
   } catch (error) {
-
     console.log(error);
 
     res.status(500).json({
       mensaje: "Error en login"
     });
-
   }
-
 });
 
-// ===============================
-// SESION
-// ===============================
-
 app.get("/sesion", (req, res) => {
-
   if (!req.session.usuario) {
-
     return res.status(401).json({
       mensaje: "No hay sesión activa"
     });
-
   }
 
   res.json(req.session.usuario);
-
 });
 
-// ===============================
-// LOGOUT
-// ===============================
-
 app.post("/logout", (req, res) => {
-
   req.session.destroy(() => {
-
     res.json({
       mensaje: "Sesión cerrada"
     });
-
   });
-
 });
 
-// ===============================
-// PRODUCTOS
-// ===============================
+
+// CATÁLOGOS
+
+app.get(
+  "/categorias",
+  verificarSesion,
+  permitirRoles(["admin", "gerente", "cajero", "inventario", "reportes"]),
+  async (req, res) => {
+    try {
+      const resultado = await pool.query(`
+        SELECT *
+        FROM categoria
+        ORDER BY id_categoria
+      `);
+
+      res.json(resultado.rows);
+    } catch (error) {
+      res.status(500).json({
+        mensaje: "Error obteniendo categorías"
+      });
+    }
+  }
+);
+
+app.get(
+  "/proveedores",
+  verificarSesion,
+  permitirRoles(["admin", "gerente", "inventario"]),
+  async (req, res) => {
+    try {
+      const resultado = await pool.query(`
+        SELECT *
+        FROM proveedor
+        ORDER BY id_proveedor
+      `);
+
+      res.json(resultado.rows);
+    } catch (error) {
+      res.status(500).json({
+        mensaje: "Error obteniendo proveedores"
+      });
+    }
+  }
+);
+
+app.get(
+  "/empleados",
+  verificarSesion,
+  permitirRoles(["admin", "gerente", "cajero"]),
+  async (req, res) => {
+    try {
+      const resultado = await pool.query(`
+        SELECT *
+        FROM empleado
+        ORDER BY id_empleado
+      `);
+
+      res.json(resultado.rows);
+    } catch (error) {
+      res.status(500).json({
+        mensaje: "Error obteniendo empleados"
+      });
+    }
+  }
+);
+
+// PRODUCTOS - ORM Y PROCEDURES
 
 app.get(
   "/productos",
   verificarSesion,
-  permitirRoles(["admin", "gerente", "cajero", "inventario"]),
+  permitirRoles(["admin", "gerente", "cajero", "inventario", "reportes"]),
   async (req, res) => {
-
     try {
+      const productos = await Producto.findAll({
+        order: [["id_producto", "ASC"]]
+      });
 
-      const resultado = await pool.query(`
-        SELECT
-          p.id_producto,
-          p.nombre,
-          p.precio,
-          p.stock,
-          c.nombre AS categoria,
-          pr.nombre AS proveedor
-        FROM producto p
-        JOIN categoria c
-        ON p.id_categoria = c.id_categoria
-        JOIN proveedor pr
-        ON p.id_proveedor = pr.id_proveedor
-        ORDER BY p.id_producto
-      `);
-
-      res.json(resultado.rows);
-
+      res.json(productos);
     } catch (error) {
-
       console.log(error);
 
       res.status(500).json({
         mensaje: "Error obteniendo productos"
       });
-
     }
-
   }
 );
-
-// ===============================
-// AGREGAR PRODUCTO
-// ===============================
 
 app.post(
   "/productos",
   verificarSesion,
   permitirRoles(["admin", "inventario"]),
   async (req, res) => {
-
     try {
-
-      const {
-        nombre,
-        precio,
-        stock,
-        id_categoria,
-        id_proveedor
-      } = req.body;
+      const { nombre, precio, stock, id_categoria, id_proveedor } = req.body;
 
       await pool.query(
         `
-        INSERT INTO producto
-        (nombre, precio, stock, id_categoria, id_proveedor)
-        VALUES ($1, $2, $3, $4, $5)
+        CALL sp_crear_producto($1, $2, $3, $4, $5)
         `,
         [nombre, precio, stock, id_categoria, id_proveedor]
       );
 
       res.json({
-        mensaje: "Producto agregado"
+        mensaje: "Producto agregado usando stored procedure"
       });
-
     } catch (error) {
-
       console.log(error);
 
       res.status(500).json({
         mensaje: "No se pudo agregar el producto"
       });
-
     }
-
   }
 );
 
-// ===============================
-// CLIENTES
-// ===============================
+app.put(
+  "/productos/:id",
+  verificarSesion,
+  permitirRoles(["admin", "inventario"]),
+  async (req, res) => {
+    try {
+      const { nombre, precio, stock } = req.body;
+
+      const producto = await Producto.findByPk(req.params.id);
+
+      if (!producto) {
+        return res.status(404).json({
+          mensaje: "Producto no encontrado"
+        });
+      }
+
+      producto.nombre = nombre;
+      producto.precio = precio;
+      producto.stock = stock;
+
+      await producto.save();
+
+      res.json({
+        mensaje: "Producto actualizado usando ORM",
+        producto
+      });
+    } catch (error) {
+      console.log(error);
+
+      res.status(500).json({
+        mensaje: "No se pudo actualizar el producto"
+      });
+    }
+  }
+);
+
+app.patch(
+  "/productos/:id/stock",
+  verificarSesion,
+  permitirRoles(["admin", "inventario"]),
+  async (req, res) => {
+    try {
+      const { stock } = req.body;
+
+      await pool.query(
+        `
+        CALL sp_actualizar_stock($1, $2)
+        `,
+        [req.params.id, stock]
+      );
+
+      res.json({
+        mensaje: "Stock actualizado usando stored procedure"
+      });
+    } catch (error) {
+      console.log(error);
+
+      res.status(500).json({
+        mensaje: "No se pudo actualizar el stock"
+      });
+    }
+  }
+);
+
+app.delete(
+  "/productos/:id",
+  verificarSesion,
+  permitirRoles(["admin"]),
+  async (req, res) => {
+    try {
+      const eliminado = await Producto.destroy({
+        where: {
+          id_producto: req.params.id
+        }
+      });
+
+      if (eliminado === 0) {
+        return res.status(404).json({
+          mensaje: "Producto no encontrado"
+        });
+      }
+
+      res.json({
+        mensaje: "Producto eliminado usando ORM"
+      });
+    } catch (error) {
+      console.log(error);
+
+      res.status(500).json({
+        mensaje: "No se pudo eliminar el producto"
+      });
+    }
+  }
+);
+
+// CLIENTES - ORM Y PROCEDURES
 
 app.get(
   "/clientes",
   verificarSesion,
   permitirRoles(["admin", "gerente", "cajero"]),
   async (req, res) => {
-
     try {
+      const clientes = await Cliente.findAll({
+        order: [["id_cliente", "ASC"]]
+      });
 
-      const resultado = await pool.query(`
-        SELECT *
-        FROM cliente
-        ORDER BY id_cliente
-      `);
-
-      res.json(resultado.rows);
-
+      res.json(clientes);
     } catch (error) {
-
       console.log(error);
 
       res.status(500).json({
         mensaje: "Error obteniendo clientes"
       });
-
     }
-
   }
 );
-
-// ===============================
-// AGREGAR CLIENTE
-// ===============================
 
 app.post(
   "/clientes",
   verificarSesion,
   permitirRoles(["admin", "gerente"]),
   async (req, res) => {
-
     try {
-
       const { nombre, telefono } = req.body;
 
       await pool.query(
         `
-        INSERT INTO cliente(nombre, telefono)
-        VALUES ($1, $2)
+        CALL sp_crear_cliente($1, $2)
         `,
         [nombre, telefono]
       );
 
       res.json({
-        mensaje: "Cliente agregado"
+        mensaje: "Cliente agregado usando stored procedure"
       });
-
     } catch (error) {
-
       console.log(error);
 
       res.status(500).json({
         mensaje: "No se pudo agregar el cliente"
       });
-
     }
-
   }
 );
 
-// ===============================
-// REPORTE
-// ===============================
+app.put(
+  "/clientes/:id",
+  verificarSesion,
+  permitirRoles(["admin", "gerente"]),
+  async (req, res) => {
+    try {
+      const { nombre, telefono } = req.body;
+
+      await pool.query(
+        `
+        CALL sp_actualizar_cliente($1, $2, $3)
+        `,
+        [req.params.id, nombre, telefono]
+      );
+
+      res.json({
+        mensaje: "Cliente actualizado usando stored procedure"
+      });
+    } catch (error) {
+      console.log(error);
+
+      res.status(500).json({
+        mensaje: "No se pudo actualizar el cliente"
+      });
+    }
+  }
+);
+
+app.delete(
+  "/clientes/:id",
+  verificarSesion,
+  permitirRoles(["admin"]),
+  async (req, res) => {
+    try {
+      const eliminado = await Cliente.destroy({
+        where: {
+          id_cliente: req.params.id
+        }
+      });
+
+      if (eliminado === 0) {
+        return res.status(404).json({
+          mensaje: "Cliente no encontrado"
+        });
+      }
+
+      res.json({
+        mensaje: "Cliente eliminado usando ORM"
+      });
+    } catch (error) {
+      console.log(error);
+
+      res.status(500).json({
+        mensaje: "No se pudo eliminar el cliente"
+      });
+    }
+  }
+);
+
+// REPORTES Y CONSULTAS
 
 app.get(
   "/reporte-ventas",
   verificarSesion,
   permitirRoles(["admin", "gerente", "reportes"]),
   async (req, res) => {
-
     try {
-
       const resultado = await pool.query(`
         SELECT *
         FROM vista_reporte_ventas
+        ORDER BY id_venta
       `);
 
       res.json(resultado.rows);
-
     } catch (error) {
-
       console.log(error);
 
       res.status(500).json({
         mensaje: "Error generando reporte"
       });
-
     }
-
   }
 );
-
-// ===============================
-// CONSULTA JOIN
-// ===============================
 
 app.get(
   "/consulta-join",
   verificarSesion,
   permitirRoles(["admin", "gerente", "reportes"]),
   async (req, res) => {
-
     try {
-
       const resultado = await pool.query(`
         SELECT
           p.nombre AS producto,
           c.nombre AS categoria,
           pr.nombre AS proveedor
         FROM producto p
-        JOIN categoria c
-        ON p.id_categoria = c.id_categoria
-        JOIN proveedor pr
-        ON p.id_proveedor = pr.id_proveedor
+        JOIN categoria c ON p.id_categoria = c.id_categoria
+        JOIN proveedor pr ON p.id_proveedor = pr.id_proveedor
       `);
 
       res.json(resultado.rows);
-
     } catch (error) {
-
-      console.log(error);
-
       res.status(500).json({
         mensaje: "Error en consulta JOIN"
       });
-
     }
-
   }
 );
 
-// ===============================
-// CONSULTA GROUP BY
-// ===============================
+app.get(
+  "/consulta-subquery",
+  verificarSesion,
+  permitirRoles(["admin", "gerente", "reportes"]),
+  async (req, res) => {
+    try {
+      const resultado = await pool.query(`
+        SELECT nombre, precio
+        FROM producto
+        WHERE precio > (
+          SELECT AVG(precio)
+          FROM producto
+        )
+      `);
+
+      res.json(resultado.rows);
+    } catch (error) {
+      res.status(500).json({
+        mensaje: "Error en subquery"
+      });
+    }
+  }
+);
 
 app.get(
   "/consulta-group",
   verificarSesion,
   permitirRoles(["admin", "gerente", "reportes"]),
   async (req, res) => {
-
     try {
-
       const resultado = await pool.query(`
         SELECT
           id_categoria,
           COUNT(*) AS total_productos
         FROM producto
         GROUP BY id_categoria
+        HAVING COUNT(*) >= 1
       `);
 
       res.json(resultado.rows);
-
     } catch (error) {
-
-      console.log(error);
-
       res.status(500).json({
         mensaje: "Error en GROUP BY"
       });
-
     }
-
   }
 );
-
-// ===============================
-// CONSULTA CTE
-// ===============================
 
 app.get(
   "/consulta-cte",
   verificarSesion,
   permitirRoles(["admin", "gerente", "reportes"]),
   async (req, res) => {
-
     try {
-
       const resultado = await pool.query(`
         WITH productos_caros AS (
           SELECT *
@@ -433,196 +542,93 @@ app.get(
       `);
 
       res.json(resultado.rows);
-
     } catch (error) {
-
-      console.log(error);
-
       res.status(500).json({
         mensaje: "Error en CTE"
       });
-
     }
-
   }
 );
 
-// ===============================
-// VENTAS CON TRANSACCION
-// ===============================
+// VENTAS - STORED PROCEDURE CON TRANSACCIÓN
 
 app.post(
   "/ventas",
   verificarSesion,
   permitirRoles(["admin", "gerente", "cajero"]),
   async (req, res) => {
-
-    const client = await pool.connect();
-
     try {
+      const { productos } = req.body;
 
-      const {
-        id_cliente,
-        id_empleado,
-        productos
-      } = req.body;
-
-      await client.query("BEGIN");
-
-      let total = 0;
-
-      for (const producto of productos) {
-
-        const consultaStock = await client.query(
-          `
-          SELECT stock, precio
-          FROM producto
-          WHERE id_producto = $1
-          `,
-          [producto.id_producto]
-        );
-
-        const stockActual = consultaStock.rows[0].stock;
-        const precio = consultaStock.rows[0].precio;
-
-        if (stockActual < producto.cantidad) {
-
-          await client.query("ROLLBACK");
-
-          return res.status(400).json({
-            mensaje: "Stock insuficiente"
-          });
-
-        }
-
-        total += precio * producto.cantidad;
-
+      if (!productos || productos.length === 0) {
+        return res.status(400).json({
+          mensaje: "Debe seleccionar al menos un producto"
+        });
       }
 
-      const venta = await client.query(
+      const item = productos[0];
+
+      await pool.query(
         `
-        INSERT INTO venta(fecha, total, id_cliente, id_empleado)
-        VALUES (CURRENT_DATE, $1, $2, $3)
-        RETURNING id_venta
+        CALL sp_registrar_venta($1, $2)
         `,
-        [total, id_cliente, id_empleado]
+        [item.id_producto, item.cantidad]
       );
 
-      const idVenta = venta.rows[0].id_venta;
-
-      for (const producto of productos) {
-
-        const consultaPrecio = await client.query(
-          `
-          SELECT precio
-          FROM producto
-          WHERE id_producto = $1
-          `,
-          [producto.id_producto]
-        );
-
-        const precio = consultaPrecio.rows[0].precio;
-
-        await client.query(
-          `
-          INSERT INTO detalle_venta
-          (id_venta, id_producto, cantidad, subtotal)
-          VALUES ($1, $2, $3, $4)
-          `,
-          [
-            idVenta,
-            producto.id_producto,
-            producto.cantidad,
-            precio * producto.cantidad
-          ]
-        );
-
-        await client.query(
-          `
-          UPDATE producto
-          SET stock = stock - $1
-          WHERE id_producto = $2
-          `,
-          [producto.cantidad, producto.id_producto]
-        );
-
-      }
-
-      await client.query("COMMIT");
-
       res.json({
-        mensaje: "Venta registrada correctamente"
+        mensaje: "Venta registrada usando stored procedure con validación"
       });
-
     } catch (error) {
-
-      await client.query("ROLLBACK");
-
       console.log(error);
 
       res.status(500).json({
-        mensaje: "Error registrando venta"
+        mensaje: "Error registrando venta mediante stored procedure"
       });
-
-    } finally {
-
-      client.release();
-
     }
-
   }
 );
 
-// ===============================
 // EXPORTAR CSV
-// ===============================
 
 app.get(
   "/exportar-reporte",
   verificarSesion,
   permitirRoles(["admin", "gerente", "reportes"]),
   async (req, res) => {
-
     try {
-
       const resultado = await pool.query(`
         SELECT *
         FROM vista_reporte_ventas
+        ORDER BY id_venta
       `);
 
-      let csv = "cliente,total,fecha\n";
+      let csv = "id_venta,fecha,cliente,empleado,total\n";
 
       resultado.rows.forEach(fila => {
-
-        csv += `${fila.cliente},${fila.total},${fila.fecha}\n`;
-
+        csv += `${fila.id_venta},${fila.fecha},${fila.cliente},${fila.empleado},${fila.total}\n`;
       });
 
       res.header("Content-Type", "text/csv");
-
       res.attachment("reporte.csv");
-
       res.send(csv);
-
     } catch (error) {
-
-      console.log(error);
-
       res.status(500).json({
         mensaje: "Error exportando CSV"
       });
-
     }
-
   }
 );
 
-// ===============================
-// PUERTO
-// ===============================
+// INICIO
 
-app.listen(3000, () => {
+app.listen(3000, async () => {
+  try {
+    await sequelize.authenticate();
+    console.log("ORM conectado correctamente");
+  } catch (error) {
+    console.log("No se pudo conectar el ORM");
+    console.log(error);
+  }
 
   console.log("Servidor corriendo en puerto 3000");
-
 });

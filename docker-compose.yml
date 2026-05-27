@@ -13,6 +13,7 @@ services:
       - ./database/seed.sql:/docker-entrypoint-initdb.d/2_seed.sql
       - ./database/indexes.sql:/docker-entrypoint-initdb.d/3_indexes.sql
       - ./database/roles.sql:/docker-entrypoint-initdb.d/4_roles.sql
+      - ./database/procedures.sql:/docker-entrypoint-initdb.d/5_procedures.sql
 
   backend:
     build: ./backend
